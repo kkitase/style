@@ -1,0 +1,7 @@
+{
+  "name": "Copy of StyleCast - 骨格×天気 服装提案",
+  "description": "あなたの骨格タイプ（ストレート・ウェーブ・ナチュラル）と現在の天気を掛け合わせ、AIが最適なコーディネートを提案するパーソナルスタイリングアプリです。",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

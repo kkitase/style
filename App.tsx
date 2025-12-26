@@ -30,7 +30,7 @@ const App: React.FC = () => {
       setSuggestion(outfit);
     } catch (err) {
       console.error(err);
-      setError("AIとの通信に失敗しました。時間をおいて再度お試しください。");
+      setError(`AIとの通信に失敗しました: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLoading(false);
     }
@@ -71,7 +71,7 @@ const App: React.FC = () => {
             <h1 className="text-xl font-bold text-gray-800 tracking-tight">StyleCast</h1>
           </div>
           {bodyType && (
-            <button 
+            <button
               onClick={reset}
               className="text-sm font-medium text-gray-500 hover:text-orange-500 transition-colors"
             >
@@ -86,7 +86,7 @@ const App: React.FC = () => {
           <div className="space-y-12 animate-fade-in">
             <div className="text-center space-y-4 max-w-2xl mx-auto">
               <h2 className="text-4xl md:text-5xl font-extrabold text-gray-900 leading-tight">
-                あなたの骨格と天気に、<br/>
+                あなたの骨格と天気に、<br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-rose-400">最高の提案を。</span>
               </h2>
               <p className="text-gray-500 text-lg">
@@ -98,7 +98,7 @@ const App: React.FC = () => {
         ) : (
           <div className="space-y-8 animate-fade-in">
             {weather && <WeatherSection weather={weather} />}
-            
+
             {loading ? (
               <div className="flex flex-col items-center justify-center py-20 space-y-6">
                 <div className="w-16 h-16 border-4 border-orange-100 border-t-orange-400 rounded-full animate-spin"></div>
@@ -110,7 +110,7 @@ const App: React.FC = () => {
             ) : error ? (
               <div className="bg-red-50 p-8 rounded-3xl border border-red-100 text-center">
                 <p className="text-red-600 font-medium mb-4">{error}</p>
-                <button 
+                <button
                   onClick={() => window.location.reload()}
                   className="bg-red-600 text-white px-8 py-3 rounded-full font-bold hover:bg-red-700 transition-colors"
                 >

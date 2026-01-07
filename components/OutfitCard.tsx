@@ -14,7 +14,6 @@ const OutfitCard: React.FC<OutfitCardProps> = ({ suggestion }) => {
     if (playing) return;
     setPlaying(true);
     try {
-      // Create a fresh instance of GeminiService to ensure up-to-date API key usage
       const gemini = new GeminiService();
       const audioBytes = await gemini.generateSpeech(suggestion.audioText);
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
@@ -29,7 +28,18 @@ const OutfitCard: React.FC<OutfitCardProps> = ({ suggestion }) => {
     }
   };
 
-  const getZozoUrl = (keyword: string) => `https://zozo.jp/search/?p_keyv=${encodeURIComponent(keyword)}`;
+  const getZozoUrl = (keyword: string) => {
+    // 記号や不要な空白を除去
+    const cleanKeyword = keyword
+      .replace(/[!"#$%&'()*+,./:;<=>?@[\]^`{|}~]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    // ZOZOのURLパラメータ p_keyv に対応。二重エンコードを避けるため一度デコードしてからエンコード
+    return `https://zozo.jp/search/?p_keyv=${encodeURIComponent(cleanKeyword)}`;
+  };
+
+  const fallbackImage = "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80";
 
   return (
     <div className="bg-white rounded-[2.5rem] shadow-xl border border-[#e3acae]/10 overflow-hidden flex flex-col">
@@ -86,19 +96,24 @@ const OutfitCard: React.FC<OutfitCardProps> = ({ suggestion }) => {
           {suggestion.items.map((item, idx) => (
             <div key={idx} className="flex flex-col group h-full">
               <div className="relative aspect-[3/4] mb-4 overflow-hidden rounded-[2rem] bg-gray-50 shadow-sm border border-gray-100">
-                {item.imageUrl ? (
-                  <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-300">
-                    <ImageIcon className="w-10 h-10" />
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-6">
+                <img 
+                  src={item.imageUrl || fallbackImage} 
+                  alt={item.name} 
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  loading="lazy"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    if (target.src !== fallbackImage) {
+                      target.src = fallbackImage;
+                    }
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-end p-6">
                   <a 
                     href={getZozoUrl(item.searchKeyword)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full bg-white text-black py-3 rounded-xl flex items-center justify-center space-x-2 text-[10px] font-black uppercase tracking-widest shadow-lg"
+                    className="w-full bg-white text-black py-3 rounded-xl flex items-center justify-center space-x-2 text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-gray-100 transition-colors"
                   >
                     <ShoppingBag className="w-3.5 h-3.5" />
                     <span>ZOZOで詳細を見る</span>
@@ -106,7 +121,7 @@ const OutfitCard: React.FC<OutfitCardProps> = ({ suggestion }) => {
                 </div>
               </div>
               <div className="space-y-2 px-2">
-                <span className="text-[9px] font-black text-[#e3acae] uppercase tracking-widest">{item.brandName || 'Recommended'}</span>
+                <span className="text-[9px] font-black text-[#e3acae] uppercase tracking-widest">{item.brandName || 'Special Item'}</span>
                 <h5 className="text-base font-black text-gray-900 leading-tight group-hover:text-[#e3acae] transition-colors">{item.name}</h5>
                 <p className="text-xs text-gray-400 font-medium leading-relaxed">{item.description}</p>
               </div>

@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { WeatherData } from '../types';
-import { Cloud, Sun, CloudRain, CloudLightning, MapPin, Droplets, Calendar } from 'lucide-react';
+import { Cloud, Sun, CloudRain, CloudLightning, MapPin, Droplets, ThermometerSun } from 'lucide-react';
 
 interface WeatherSectionProps {
   weather: WeatherData;
@@ -9,50 +8,57 @@ interface WeatherSectionProps {
 
 const WeatherSection: React.FC<WeatherSectionProps> = ({ weather }) => {
   const getWeatherIcon = (condition: string) => {
-    if (condition.includes('晴')) return <Sun className="w-8 h-8 text-[#ff7f50]" />;
-    if (condition.includes('雨')) return <CloudRain className="w-8 h-8 text-blue-400" />;
-    if (condition.includes('雷')) return <CloudLightning className="w-8 h-8 text-yellow-400" />;
-    if (condition.includes('曇')) return <Cloud className="w-8 h-8 text-gray-400" />;
-    return <Cloud className="w-8 h-8 text-gray-300" />;
+    if (condition.includes('晴')) return <Sun className="w-16 h-16 text-orange-400 drop-shadow-sm" />;
+    if (condition.includes('雨')) return <CloudRain className="w-16 h-16 text-blue-400 drop-shadow-sm" />;
+    if (condition.includes('雷')) return <CloudLightning className="w-16 h-16 text-yellow-400 drop-shadow-sm" />;
+    return <Cloud className="w-16 h-16 text-gray-400 drop-shadow-sm" />;
   };
 
   return (
-    <div className="flex flex-col md:flex-row items-center justify-between p-8 bg-white rounded-[3rem] shadow-xl shadow-[#ff7f50]/5 border border-[#ff7f50]/10 max-w-4xl mx-auto space-y-6 md:space-y-0 relative overflow-hidden">
-      <div className="absolute top-0 right-0 px-6 py-2 bg-[#ff7f50] text-white text-[10px] font-black uppercase tracking-widest rounded-bl-3xl flex items-center shadow-sm">
-        <Calendar className="w-3 h-3 mr-2" />
-        {weather.date || 'Today'} Forecast
-      </div>
+    <div className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-[#e3acae]/10 relative overflow-hidden group">
+      {/* Decorative background element */}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-[#e3acae]/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:bg-[#e3acae]/10 transition-colors"></div>
+      
+      <div className="flex flex-col md:flex-row items-center md:items-end justify-between gap-6 relative z-10">
+        <div className="flex flex-col items-center md:items-start space-y-4">
+          <div className="flex items-center space-x-2 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
+            <MapPin className="w-3.5 h-3.5 text-[#e3acae]" />
+            <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{weather.city}</span>
+          </div>
+          
+          <div className="flex items-center space-x-6">
+            <div className="bg-[#fdf8f9] p-4 rounded-3xl">
+              {getWeatherIcon(weather.condition)}
+            </div>
+            <div>
+              <div className="text-4xl font-black text-gray-900 tracking-tighter leading-none mb-1">
+                {weather.condition}
+              </div>
+              <p className="text-xs text-gray-400 font-bold max-w-[200px]">
+                {weather.description}
+              </p>
+            </div>
+          </div>
+        </div>
 
-      <div className="flex items-center space-x-6">
-        <div className="w-16 h-16 bg-[#ff7f50]/5 rounded-2xl flex items-center justify-center">
-          {getWeatherIcon(weather.condition)}
-        </div>
-        <div>
-          <div className="flex items-center space-x-2 text-gray-400 mb-1">
-            <MapPin className="w-3 h-3 text-[#ff7f50]" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">{weather.city}</span>
+        <div className="flex items-center space-x-10 border-t md:border-t-0 md:border-l border-gray-100 pt-6 md:pt-0 md:pl-10 w-full md:w-auto justify-around md:justify-end">
+          <div className="text-center md:text-right">
+            <div className="flex items-center justify-center md:justify-end space-x-1 text-[9px] font-black text-[#e3acae] uppercase tracking-widest mb-1">
+              <ThermometerSun className="w-3 h-3" />
+              <span>Temp</span>
+            </div>
+            <div className="text-5xl font-black text-gray-900 tracking-tighter leading-none">
+              {weather.temp}<span className="text-xl font-light text-[#e3acae]/50 ml-1">°C</span>
+            </div>
           </div>
-          <div className="text-xl font-black text-gray-800 tracking-tight">{weather.condition}</div>
-          <div className="text-xs text-gray-400 font-medium italic">{weather.description}</div>
-        </div>
-      </div>
-
-      <div className="flex items-center space-x-12">
-        <div className="text-center">
-          <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-1">Temp</div>
-          <div className="flex items-baseline">
-            <span className="text-4xl font-black text-gray-900 leading-none">{weather.temp}</span>
-            <span className="text-lg font-bold text-[#ff7f50]/40 ml-1">°C</span>
-          </div>
-        </div>
-        <div className="w-[1px] h-10 bg-[#ff7f50]/10 hidden md:block"></div>
-        <div className="text-center">
-          <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-1 flex items-center justify-center">
-            <Droplets className="w-2.5 h-2.5 mr-1 text-blue-300" /> Humidity
-          </div>
-          <div className="flex items-baseline">
-            <span className="text-4xl font-black text-gray-900 leading-none">{weather.humidity}</span>
-            <span className="text-lg font-bold text-[#ff7f50]/40 ml-1">%</span>
+          <div className="text-center md:text-right">
+            <div className="flex items-center justify-center md:justify-end space-x-1 text-[9px] font-black text-[#e3acae] uppercase tracking-widest mb-1">
+              <Droplets className="w-3 h-3" />
+              <span>Humidity</span>
+            </div>
+            <div className="text-5xl font-black text-gray-900 tracking-tighter leading-none">
+              {weather.humidity}<span className="text-xl font-light text-[#e3acae]/50 ml-1">%</span>
+            </div>
           </div>
         </div>
       </div>

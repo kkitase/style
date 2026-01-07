@@ -1,20 +1,20 @@
-
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { BodyType, WeatherData, OutfitSuggestion, UserContext } from "../types";
 
 export class GeminiService {
   private ai: GoogleGenAI;
+  private readonly MODEL_NAME = "gemini-3-flash-preview";
 
   constructor() {
     this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   }
 
   async getLocalWeather(lat: number, lon: number): Promise<WeatherData> {
-    const prompt = `今の座標(${lat}, ${lon})付近の天気情報を教えてください。
+    const prompt = `今の座標(${lat}, ${lon})付近の最新の天気情報を教えてください。
     都市名、気温(℃)、天候の状態、湿度、簡単な説明を日本語で返してください。`;
 
     const response = await this.ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: this.MODEL_NAME,
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
@@ -48,12 +48,11 @@ export class GeminiService {
   }
 
   async getWeatherByLocation(locationName: string, date: string): Promise<WeatherData> {
-    const prompt = `Yahoo!天気の情報を検索して、${locationName}の${date}の天気予報を教えてください。
-    必ず${date}時点の予報を反映させてください。
+    const prompt = `${locationName}の${date}の天気予報を検索してください。
     都市名（正確に）、気温(℃)、天候の状態、湿度、簡単な説明を日本語で返してください。`;
 
     const response = await this.ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: this.MODEL_NAME,
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
@@ -86,39 +85,46 @@ export class GeminiService {
     const realMimeType = mimeType.replace('data:', '');
 
     const prompt = `
-    あなたは世界最高峰のパーソナルスタイリスト兼、骨格診断の専門家です。
+    あなたはプロのファッションスタイリストです。
     
-    【依頼内容】
-    1. 添付された写真から、この人物の骨格タイプ（Straight/Wave/Natural）を分析してください。
-    2. 行先の環境：${weather.city}、気温 ${weather.temp}℃、天候 ${weather.condition}
-    3. なりなり雰囲気：${context.mood}
+    【分析】
+    1. 添付写真から人物の「性別」と「骨格タイプ（Straight/Wave/Natural）」を正確に判定してください。
+    2. 性別に適した（女性ならレディース、男性ならメンズ）具体的な実在ブランドのアイテムを3つ提案してください。
     
-    【ZOZOTOWN具体的な商品提案ルール】
-    - 各おすすめアイテムについて、実際にZOZOTOWNで人気のあるブランドや、現在トレンドの具体的な商品名を1つずつ挙げてください。
-    - searchKeywordには、そのアイテムをZOZOTOWNで検索するための最適なキーワード（例：「BEAMS ロングコート」）を入れてください。
-    - imageUrlは、そのアイテムを象徴する高品質なファッション画像（Unsplash等）のURLを入れてください。
+    【画像URLに関する重要ルール】
+    - アイテムの画像(imageUrl)には、必ず実在するファッション商品の有効なURLをセットしてください。
+    - 適切なURLが見当たらない場合は、Unsplashの高品質なファッション関連の公開画像（例: "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?auto=format&fit=crop&w=800&q=80"）を、そのアイテムの雰囲気に合わせて選択してください。
+    
+    【ZOZO検索キーワードに関する重要ルール】
+    - searchKeywordには、記号を含まない純粋な「ブランド名 アイテム名 性別」のスペース区切り文字列のみを入れてください。
+    - 例: "UNITED ARROWS ロングコート レディース"
+    - 余計な説明や引用符、ハッシュタグは一切入れないでください。
 
-    以下のJSON形式で厳密に出力してください：
+    【状況】
+    - 天気：${weather.city}、${weather.temp}℃、${weather.condition}
+    - 希望：${context.mood}
+
+    JSON形式で出力：
     {
       "diagnosis": "Straight" | "Wave" | "Natural",
-      "diagnosisReason": "診断理由",
-      "title": "テーマ名",
+      "diagnosisReason": "性別と骨格の判断理由",
+      "title": "コーデのタイトル",
       "items": [
         {
-          "name": "ブランド名 / 具体的な商品名",
-          "brandName": "ブランド名のみ",
-          "imageUrl": "画像URL",
+          "name": "商品名",
+          "brandName": "ブランド名",
+          "imageUrl": "有効な画像URL",
           "description": "選定理由",
-          "searchKeyword": "ZOZO検索用のブランド名と商品名"
+          "searchKeyword": "ZOZO検索用のクリーンなキーワード"
         }
       ],
-      "tips": "着こなしのアドバイス",
-      "reason": "総合的な提案理由",
-      "audioText": "読み上げ用のメッセージ"
+      "tips": "ワンポイントアドバイス",
+      "reason": "総合提案理由",
+      "audioText": "読み上げ用のアドバイステキスト"
     }`;
 
     const response = await this.ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: this.MODEL_NAME,
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: realMimeType } },
@@ -157,13 +163,29 @@ export class GeminiService {
       }
     });
 
-    return JSON.parse(response.text.trim());
+    const result = JSON.parse(response.text.trim());
+    
+    // 画像のフォールバック処理を徹底
+    const fallbackImages = [
+      "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1434389677669-e08b4cac3105?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1467043237213-65f2da53396f?auto=format&fit=crop&w=800&q=80"
+    ];
+
+    result.items = result.items.map((item: any, idx: number) => ({
+      ...item,
+      imageUrl: (item.imageUrl && item.imageUrl.startsWith('http')) 
+        ? item.imageUrl 
+        : fallbackImages[idx % fallbackImages.length]
+    }));
+
+    return result;
   }
 
   async generateSpeech(text: string): Promise<Uint8Array> {
     const response = await this.ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text: `優しく落ち着いた女性スタイリストのトーンで話してください: ${text}` }] }],
+      contents: [{ parts: [{ text: `スタイリストとして落ち着いたトーンで話してください: ${text}` }] }],
       config: {
         responseModalities: [Modality.AUDIO],
         speechConfig: {

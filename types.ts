@@ -7,30 +7,40 @@ export interface WeatherData {
   condition: string;
   humidity: number;
   description: string;
+  date?: string;
+}
+
+export interface UserContext {
+  locationName: string;
+  mood: string;
+  date: string;
+}
+
+export interface RecommendedItem {
+  name: string;
+  brandName?: string;
+  imageUrl: string;
+  description: string;
+  zozoSearchUrl: string;
 }
 
 export interface OutfitSuggestion {
+  diagnosis: BodyType;
+  diagnosisReason: string;
   title: string;
-  items: string[];
+  items: RecommendedItem[];
   tips: string;
   reason: string;
-  avatarConfig?: {
-    topColor: string;
-    bottomColor: string;
-  };
-  products?: {
-    title: string;
-    url: string;
-    imageUrl?: string;
-    price?: string;
-  }[];
+  audioText: string;
+}
+
+export interface QuizOption {
+  label: string;
+  value: BodyType;
 }
 
 export interface QuizQuestion {
   id: number;
   question: string;
-  options: {
-    label: string;
-    value: BodyType;
-  }[];
+  options: QuizOption[];
 }

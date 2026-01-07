@@ -1,195 +1,207 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import { BodyType, WeatherData, OutfitSuggestion } from "../types";
-import { compressImage } from "../utils/imageUtils";
+
+import { GoogleGenAI, Type, Modality } from "@google/genai";
+import { BodyType, WeatherData, OutfitSuggestion, UserContext } from "../types";
 
 export class GeminiService {
   private ai: GoogleGenAI;
 
   constructor() {
-    const apiKey = import.meta.env.VITE_API_KEY;
-    if (!apiKey) {
-      console.error("【重要】APIキーが設定されていません。VITE_API_KEYを確認してください。");
-    }
-    console.log("GeminiService initialized. API Key length:", apiKey ? apiKey.length : 0);
-    this.ai = new GoogleGenAI({ apiKey: apiKey || '' });
+    this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   }
 
-  private readonly MODEL_NAME = "gemini-flash-latest";
+  async getLocalWeather(lat: number, lon: number): Promise<WeatherData> {
+    const prompt = `今の座標(${lat}, ${lon})付近の天気情報を教えてください。
+    都市名、気温(℃)、天候の状態、湿度、簡単な説明を日本語で返してください。`;
 
-
-  // リトライ付きのAPI呼び出し
-  private async generateContentWithRetry(params: any, retries = 5, delayMs = 10000): Promise<any> {
-    for (let i = 0; i < retries; i++) {
-      try {
-        return await this.ai.models.generateContent(params);
-      } catch (error: any) {
-        // 429エラーまたは503エラーの場合はリトライ
-        if ((error.message?.includes("429") || error.message?.includes("503")) && i < retries - 1) {
-          console.warn(`API call failed (attempt ${i + 1}/${retries}). Retrying in ${delayMs}ms...`, error.message);
-          await new Promise(resolve => setTimeout(resolve, delayMs));
-          delayMs *= 2; // 指数バックオフ
-          continue;
+    const response = await this.ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            city: { type: Type.STRING },
+            temp: { type: Type.NUMBER },
+            condition: { type: Type.STRING },
+            humidity: { type: Type.NUMBER },
+            description: { type: Type.STRING }
+          },
+          required: ["city", "temp", "condition", "humidity", "description"]
         }
-        throw error;
       }
-    }
-  }
-
-  // 座標ではなく「地名」を受け取るように変更
-  async getLocalWeather(location: string): Promise<WeatherData> {
-    const prompt = `
-    「${location}」の現在の天気情報を教えてください。
-    都市名、気温(℃)、天候の状態、湿度、簡単な説明を日本語で返してください。
-    `;
+    });
 
     try {
-      const response = await this.generateContentWithRetry({
-        model: this.MODEL_NAME,
-        contents: prompt,
-        config: {
-          // tools: [{ googleSearch: {} }], // 負荷軽減のため一時的に検索無効化
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              city: { type: Type.STRING },
-              temp: { type: Type.NUMBER },
-              condition: { type: Type.STRING },
-              humidity: { type: Type.NUMBER },
-              description: { type: Type.STRING }
-            },
-            required: ["city", "temp", "condition", "humidity", "description"]
-          }
-        }
-      });
       return JSON.parse(response.text.trim());
     } catch (e) {
-      console.warn("Weather API failed, using mock data", e);
+      console.error("Weather parsing failed", e);
       return {
-        city: `${location}（サンプル）`,
-        temp: 20,
+        city: "現在地",
+        temp: 22,
         condition: "晴れ",
-        humidity: 50,
-        description: `※現在はアクセス集中等のため、サンプル情報を表示しています。しばらく時間をおいてお試しください。`
+        humidity: 45,
+        description: "過ごしやすい天気です"
       };
     }
   }
 
-  async getOutfitSuggestion(bodyType: BodyType, weather: WeatherData, location: string): Promise<OutfitSuggestion> {
-    const prompt = `
-    ターゲット: 骨格タイプ「${bodyType}」の女性
-    シチュエーション: 「${location}」へのお出かけ
-    天候: ${weather.city}、${weather.temp}℃、${weather.condition} (${weather.description})
+  async getWeatherByLocation(locationName: string, date: string): Promise<WeatherData> {
+    const prompt = `Yahoo!天気の情報を検索して、${locationName}の${date}の天気予報を教えてください。
+    必ず${date}時点の予報を反映させてください。
+    都市名（正確に）、気温(℃)、天候の状態、湿度、簡単な説明を日本語で返してください。`;
 
-    この条件に最適な今日の服装を提案してください。
-    また、その服装に合う**実際の通販アイテム（Amazon, 楽天, ZOZOなど）**を3つ探して提案してください。
-    以下のJSON形式で答えてください：
-    {
-      "title": "コーディネートのテーマ名",
-      "items": ["トップス名", "ボトムス名", "小物"],
-      "tips": "着こなしアドバイス",
-      "reason": "選定理由",
-      "products": [
-        { "title": "商品名", "url": "商品URL", "price": "価格（概算）" }
-      ]
-    }`;
+    const response = await this.ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            city: { type: Type.STRING },
+            temp: { type: Type.NUMBER },
+            condition: { type: Type.STRING },
+            humidity: { type: Type.NUMBER },
+            description: { type: Type.STRING }
+          },
+          required: ["city", "temp", "condition", "humidity", "description"]
+        }
+      }
+    });
 
     try {
-      const response = await this.generateContentWithRetry({
-        model: this.MODEL_NAME,
-        contents: prompt,
-        config: {
-          // tools: [{ googleSearch: {} }], // 負荷軽減のため一時的に検索無効化
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              title: { type: Type.STRING },
-              items: { type: Type.ARRAY, items: { type: Type.STRING } },
-              tips: { type: Type.STRING },
-              reason: { type: Type.STRING },
-              products: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    title: { type: Type.STRING },
-                    url: { type: Type.STRING },
-                    price: { type: Type.STRING }
-                  },
-                  required: ["title", "url"]
-                }
+      const data = JSON.parse(response.text.trim());
+      return { ...data, date };
+    } catch (e) {
+      console.error("Weather parsing failed", e);
+      throw new Error("指定された場所・日付の天気が取得できませんでした。");
+    }
+  }
+
+  async getOutfitSuggestion(imageContent: string, weather: WeatherData, context: UserContext): Promise<OutfitSuggestion> {
+    const [mimeType, base64Data] = imageContent.split(';base64,');
+    const realMimeType = mimeType.replace('data:', '');
+
+    const prompt = `
+    あなたは世界最高峰のパーソナルスタイリスト兼、骨格診断の専門家です。
+    
+    【依頼内容】
+    1. 添付された写真から、この人物の骨格タイプ（Straight/Wave/Natural）を分析してください。
+    2. 行先の環境：${weather.city}、気温 ${weather.temp}℃、天候 ${weather.condition}
+    3. なりたい雰囲気：${context.mood}
+    
+    【ZOZOTOWN具体的な商品提案ルール】
+    - 各おすすめアイテムについて、実際にZOZOTOWNで人気のあるブランドや、現在トレンドの具体的な商品名を1つずつ挙げてください。
+    - アイテム名は「ブランド名 / 具体的な商品名」の形式にしてください。
+    - zozoSearchUrlには、そのアイテムをZOZOTOWNで検索するためのURL（https://zozo.jp/search/?p_keyv=検索ワード）を生成して入れてください。
+    - imageUrlは、そのアイテムを象徴する高品質なファッション画像（Unsplash等）のURLを入れてください。
+
+    以下のJSON形式で厳密に出力してください：
+    {
+      "diagnosis": "Straight" | "Wave" | "Natural",
+      "diagnosisReason": "診断理由",
+      "title": "テーマ名",
+      "items": [
+        {
+          "name": "ブランド名 / 具体的な商品名",
+          "brandName": "ブランド名のみ",
+          "imageUrl": "画像URL",
+          "description": "選定理由",
+          "zozoSearchUrl": "ZOZO検索用URL"
+        }
+      ],
+      "tips": "着こなしのアドバイス",
+      "reason": "総合的な提案理由",
+      "audioText": "読み上げ用のメッセージ"
+    }`;
+
+    const response = await this.ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: {
+        parts: [
+          { inlineData: { data: base64Data, mimeType: realMimeType } },
+          { text: prompt }
+        ]
+      },
+      config: {
+        tools: [{ googleSearch: {} }],
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            diagnosis: { type: Type.STRING },
+            diagnosisReason: { type: Type.STRING },
+            title: { type: Type.STRING },
+            items: { 
+              type: Type.ARRAY,
+              items: { 
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING },
+                  brandName: { type: Type.STRING },
+                  imageUrl: { type: Type.STRING },
+                  description: { type: Type.STRING },
+                  zozoSearchUrl: { type: Type.STRING }
+                },
+                required: ["name", "imageUrl", "description", "zozoSearchUrl"]
               }
             },
-            required: ["title", "items", "tips", "reason", "products"]
-          }
+            tips: { type: Type.STRING },
+            reason: { type: Type.STRING },
+            audioText: { type: Type.STRING }
+          },
+          required: ["diagnosis", "diagnosisReason", "title", "items", "tips", "reason", "audioText"]
         }
-      });
-      return JSON.parse(response.text.trim());
-    } catch (e) {
-      console.warn("Outfit API failed, using mock data", e);
-      return {
-        title: "大人のリラックスカジュアル（サンプル）",
-        items: ["オーバーサイズシャツ", "テーパードパンツ", "シルバーアクセサリー"],
-        tips: "手首・足首を見せて抜け感を出しましょう。",
-        reason: `※現在はアクセス集中等のため、サンプル提案を表示しています。しばらく時間をおいてお試しください。`,
-        products: [
-          { title: "オーバーサイズシャツ（サンプル）", url: "https://example.com", price: "¥4,000" },
-          { title: "テーパードパンツ（サンプル）", url: "https://example.com", price: "¥5,000" }
-        ]
-      };
-    }
+      }
+    });
+
+    return JSON.parse(response.text.trim());
   }
 
-  async predictBodyType(imageBase64: string): Promise<{ type: BodyType; reason: string }> {
-    const prompt = `
-    この画像の人物の骨格タイプ（Straight, Wave, Natural）を診断してください。
-    
-    以下のJSON形式で答えてください：
-    {
-      "type": "Straight" | "Wave" | "Natural",
-      "reason": "診断理由（日本語で簡潔に）"
-    }`;
+  async generateSpeech(text: string): Promise<Uint8Array> {
+    const response = await this.ai.models.generateContent({
+      model: "gemini-2.5-flash-preview-tts",
+      contents: [{ parts: [{ text: `優しく落ち着いた女性スタイリストのトーンで話してください: ${text}` }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: 'Kore' },
+          },
+        },
+      },
+    });
 
-    try {
-      // 送信前に画像を圧縮・リサイズ (最大800px, 品質0.7)
-      const compressedBase64 = await compressImage(imageBase64);
+    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if (!base64Audio) throw new Error("Audio generation failed");
 
-      // Base64ヘッダー除去
-      const base64Data = compressedBase64.split(',')[1];
+    const binaryString = atob(base64Audio);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
+  }
+}
 
-      const response = await this.generateContentWithRetry({
-        model: this.MODEL_NAME,
-        contents: [
-          { text: prompt },
-          {
-            inlineData: {
-              mimeType: "image/jpeg",
-              data: base64Data
-            }
-          }
-        ],
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            // ... (スキーマは同じ)
-            type: Type.OBJECT,
-            properties: {
-              type: { type: Type.STRING, enum: ["Straight", "Wave", "Natural"] },
-              reason: { type: Type.STRING }
-            },
-            required: ["type", "reason"]
-          }
-        }
-      });
-      return JSON.parse(response.text.trim());
-    } catch (e) {
-      console.warn("Body type prediction failed", e);
-      // エラー時のフォールバックは維持するが、理由は明確にする
-      return {
-        type: "Natural", // 仮の値
-        reason: `【診断エラー】画像の解析に失敗しました。もう少し小さな画像か、別の画像を試してみてください。`
-      };
+export async function decodeAudioData(
+  data: Uint8Array,
+  ctx: AudioContext,
+  sampleRate: number = 24000,
+  numChannels: number = 1,
+): Promise<AudioBuffer> {
+  const dataInt16 = new Int16Array(data.buffer);
+  const frameCount = dataInt16.length / numChannels;
+  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+
+  for (let channel = 0; channel < numChannels; channel++) {
+    const channelData = buffer.getChannelData(channel);
+    for (let i = 0; i < frameCount; i++) {
+      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
     }
   }
+  return buffer;
 }

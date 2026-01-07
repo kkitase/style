@@ -21,7 +21,7 @@ export interface RecommendedItem {
   brandName?: string;
   imageUrl: string;
   description: string;
-  zozoSearchUrl: string;
+  searchKeyword: string;
 }
 
 export interface OutfitSuggestion {

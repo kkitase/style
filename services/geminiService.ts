@@ -91,12 +91,11 @@ export class GeminiService {
     【依頼内容】
     1. 添付された写真から、この人物の骨格タイプ（Straight/Wave/Natural）を分析してください。
     2. 行先の環境：${weather.city}、気温 ${weather.temp}℃、天候 ${weather.condition}
-    3. なりたい雰囲気：${context.mood}
+    3. なりなり雰囲気：${context.mood}
     
     【ZOZOTOWN具体的な商品提案ルール】
     - 各おすすめアイテムについて、実際にZOZOTOWNで人気のあるブランドや、現在トレンドの具体的な商品名を1つずつ挙げてください。
-    - アイテム名は「ブランド名 / 具体的な商品名」の形式にしてください。
-    - zozoSearchUrlには、そのアイテムをZOZOTOWNで検索するためのURL（https://zozo.jp/search/?p_keyv=検索ワード）を生成して入れてください。
+    - searchKeywordには、そのアイテムをZOZOTOWNで検索するための最適なキーワード（例：「BEAMS ロングコート」）を入れてください。
     - imageUrlは、そのアイテムを象徴する高品質なファッション画像（Unsplash等）のURLを入れてください。
 
     以下のJSON形式で厳密に出力してください：
@@ -110,7 +109,7 @@ export class GeminiService {
           "brandName": "ブランド名のみ",
           "imageUrl": "画像URL",
           "description": "選定理由",
-          "zozoSearchUrl": "ZOZO検索用URL"
+          "searchKeyword": "ZOZO検索用のブランド名と商品名"
         }
       ],
       "tips": "着こなしのアドバイス",
@@ -144,9 +143,9 @@ export class GeminiService {
                   brandName: { type: Type.STRING },
                   imageUrl: { type: Type.STRING },
                   description: { type: Type.STRING },
-                  zozoSearchUrl: { type: Type.STRING }
+                  searchKeyword: { type: Type.STRING }
                 },
-                required: ["name", "imageUrl", "description", "zozoSearchUrl"]
+                required: ["name", "imageUrl", "description", "searchKeyword"]
               }
             },
             tips: { type: Type.STRING },

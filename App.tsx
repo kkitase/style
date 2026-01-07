@@ -2,9 +2,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { BodyType, WeatherData, OutfitSuggestion } from './types';
 import { GeminiService } from './services/geminiService';
-import BodyTypeQuiz from './components/BodyTypeQuiz';
+import BodyTypeImageUpload from './components/BodyTypeImageUpload';
 import WeatherSection from './components/WeatherSection';
 import OutfitCard from './components/OutfitCard';
+import LocationInput from './components/LocationInput';
+
+import ShoppingList from './components/ShoppingList';
 
 const App: React.FC = () => {
   const [bodyType, setBodyType] = useState<BodyType>(null);
@@ -12,6 +15,7 @@ const App: React.FC = () => {
   const [suggestion, setSuggestion] = useState<OutfitSuggestion | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [location, setLocation] = useState<string>('');
 
   const gemini = new GeminiService();
 
@@ -19,14 +23,19 @@ const App: React.FC = () => {
     setBodyType(result);
   };
 
-  const fetchWeatherAndSuggest = useCallback(async (lat: number, lon: number) => {
+  const handleLocationSubmit = (loc: string) => {
+    setLocation(loc);
+    fetchWeatherAndSuggest(loc);
+  };
+
+  const fetchWeatherAndSuggest = useCallback(async (loc: string) => {
     if (!bodyType) return;
     setLoading(true);
     setError(null);
     try {
-      const weatherData = await gemini.getLocalWeather(lat, lon);
+      const weatherData = await gemini.getLocalWeather(loc);
       setWeather(weatherData);
-      const outfit = await gemini.getOutfitSuggestion(bodyType, weatherData);
+      const outfit = await gemini.getOutfitSuggestion(bodyType, weatherData, loc);
       setSuggestion(outfit);
     } catch (err) {
       console.error(err);
@@ -36,29 +45,11 @@ const App: React.FC = () => {
     }
   }, [bodyType]);
 
-  useEffect(() => {
-    if (bodyType && !weather) {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            fetchWeatherAndSuggest(pos.coords.latitude, pos.coords.longitude);
-          },
-          (err) => {
-            console.error(err);
-            // Fallback to a default location if geolocation fails
-            fetchWeatherAndSuggest(35.6895, 139.6917); // Tokyo
-          }
-        );
-      } else {
-        fetchWeatherAndSuggest(35.6895, 139.6917); // Tokyo
-      }
-    }
-  }, [bodyType, weather, fetchWeatherAndSuggest]);
-
   const reset = () => {
     setBodyType(null);
     setWeather(null);
     setSuggestion(null);
+    setLocation('');
   };
 
   return (
@@ -90,36 +81,71 @@ const App: React.FC = () => {
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-rose-400">最高の提案を。</span>
               </h2>
               <p className="text-gray-500 text-lg">
-                4つの質問に答えるだけで、AIがあなたの骨格タイプを診断。現在の天気に基づいた最適なスタイリングを提案します。
+                写真をアップロードするだけで、AIがあなたの骨格タイプを診断。
               </p>
             </div>
-            <BodyTypeQuiz onComplete={handleDiagnosisComplete} />
+            <BodyTypeImageUpload onComplete={handleDiagnosisComplete} />
           </div>
         ) : (
           <div className="space-y-8 animate-fade-in">
-            {weather && <WeatherSection weather={weather} />}
-
-            {loading ? (
-              <div className="flex flex-col items-center justify-center py-20 space-y-6">
-                <div className="w-16 h-16 border-4 border-orange-100 border-t-orange-400 rounded-full animate-spin"></div>
-                <div className="text-center">
-                  <p className="text-xl font-bold text-gray-700">AIがスタイリング中...</p>
-                  <p className="text-gray-400 text-sm">あなたの骨格と現在の天気を分析しています</p>
+            {/* Location Input Phase */}
+            {!weather && !loading && (
+              <div className="animate-fade-in">
+                <div className="bg-orange-50 p-6 rounded-2xl mb-8 border border-orange-100">
+                  <p className="font-bold text-orange-800 flex items-center">
+                    <span className="bg-white p-2 rounded-full mr-3 shadow-sm">✨</span>
+                    骨格タイプ: {bodyType}
+                  </p>
+                  <p className="text-sm text-orange-600 mt-2 ml-14">
+                    診断完了しました！次は行き先を教えてください。
+                  </p>
                 </div>
+                <LocationInput onLocationSubmit={handleLocationSubmit} />
               </div>
-            ) : error ? (
-              <div className="bg-red-50 p-8 rounded-3xl border border-red-100 text-center">
-                <p className="text-red-600 font-medium mb-4">{error}</p>
-                <button
-                  onClick={() => window.location.reload()}
-                  className="bg-red-600 text-white px-8 py-3 rounded-full font-bold hover:bg-red-700 transition-colors"
-                >
-                  再読み込み
-                </button>
-              </div>
-            ) : suggestion ? (
-              <OutfitCard suggestion={suggestion} bodyType={bodyType} />
-            ) : null}
+            )}
+
+            {/* Application Content */}
+            {(weather || loading) && (
+              <>
+                {weather && <WeatherSection weather={weather} />}
+
+                {loading ? (
+                  <div className="flex flex-col items-center justify-center py-20 space-y-6">
+                    <div className="w-16 h-16 border-4 border-orange-100 border-t-orange-400 rounded-full animate-spin"></div>
+                    <div className="text-center">
+                      <p className="text-xl font-bold text-gray-700">AIがスタイリング中...</p>
+                      <p className="text-gray-400 text-sm">あなたの骨格と現地の天気を分析し、商品を探しています</p>
+                    </div>
+                  </div>
+                ) : error ? (
+                  <div className="bg-red-50 p-8 rounded-3xl border border-red-100 text-center">
+                    <p className="text-red-600 font-medium mb-4">{error}</p>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="bg-red-600 text-white px-8 py-3 rounded-full font-bold hover:bg-red-700 transition-colors"
+                    >
+                      再読み込み
+                    </button>
+                  </div>
+                ) : suggestion ? (
+                  <div className="animate-fade-in space-y-8">
+                    <div className="grid md:grid-cols-2 gap-8">
+                      <div>
+                        <OutfitCard suggestion={suggestion} bodyType={bodyType} />
+                      </div>
+                      <div className="space-y-8">
+                        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                          <h3 className="font-bold text-gray-800 mb-2">💡 ポイント</h3>
+                          <p className="text-gray-600 text-sm leading-relaxed">{suggestion.tips}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {suggestion.products && <ShoppingList items={suggestion.products} />}
+                  </div>
+                ) : null}
+              </>
+            )}
           </div>
         )}
       </main>

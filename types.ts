@@ -14,6 +14,16 @@ export interface OutfitSuggestion {
   items: string[];
   tips: string;
   reason: string;
+  avatarConfig?: {
+    topColor: string;
+    bottomColor: string;
+  };
+  products?: {
+    title: string;
+    url: string;
+    imageUrl?: string;
+    price?: string;
+  }[];
 }
 
 export interface QuizQuestion {
